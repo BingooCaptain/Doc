@@ -1,0 +1,36 @@
+I'll review the GitHub diff for you. Let me analyze the changes made to the Tizen.NUI codebase.
+Looking at the diff, I can see two main changes:
+1. TextConstants.cs Changes
+Line 262: A minor whitespace change from to (removing trailing spaces)
+Lines 953-998: Addition of a new TextEmboss struct with the following properties:
+Enable (bool) - Whether emboss is enabled
+Direction (Vector2) - Emboss direction in texture space
+Strength (float) - Emboss strength in pixels
+LightColor (Color) - Highlight color for raised areas
+ShadowColor (Color) - Shadow color for recessed areas
+2. TextLabel.cs Changes
+Lines 2044-2138: Addition of two new methods:
+SetEmboss(TextEmboss textEmboss) - Sets emboss properties on the TextLabel
+GetEmboss() - Retrieves current emboss properties from the TextLabel
+Code Review Findings
+✅ Good Aspects:
+Consistent API Design: The new methods follow the existing pattern used by other TextLabel properties
+Proper Documentation: Comprehensive XML documentation with parameter descriptions
+Resource Management: Proper use of using statements for PropertyValue objects
+Type Safety: Strong typing with the new TextEmboss struct
+⚠️ Issues Found:
+Critical Bug in GetEmboss() method (Line 2128):
+lightColorPv.Get(shadowColor);  // ❌ Wrong variable used
+result.LightColor = shadowColor; // ❌ Wrong assignment
+This should be:
+shadowColorPv.Get(shadowColor);  // ✅ Use shadowColorPv
+result.ShadowColor = shadowColor; // ✅ Assign to ShadowColor property
+Minor Issues:
+Inconsistent Default Value Documentation: The XML comments mention default values, but the struct doesn't have default values set
+Missing Null Check: The map != null check is redundant since val.Get(map) should always return a valid map
+🔧 Recommendations:
+Fix the critical bug in the GetEmboss() method
+Consider adding default values to the TextEmboss struct properties
+Add input validation in SetEmboss() method
+Consider adding unit tests for the new functionality
+The overall design and implementation approach is solid, but the bug in GetEmboss() needs immediate attention as it would cause incorrect behavior when retrieving emboss properties.

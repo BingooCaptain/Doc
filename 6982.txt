@@ -1,0 +1,124 @@
+我来Review这个补丁文件。这是一个针对 `TextLabel` 布局测量逻辑的重构，主要简化了复杂的测量算法。
+
+## 代码审查结果
+
+### 🎯 **主要更改概述**
+
+#### **1. 测量逻辑简化**
+- 将原来复杂的嵌套条件逻辑重构为更清晰的线性流程
+- 统一了宽度和高度的测量处理方式
+- 简化了最小/最大尺寸的处理逻辑
+
+#### **2. 代码结构优化**
+- 移除了重复的代码块
+- 统一了测量规范的创建方式
+- 简化了尺寸计算逻辑
+
+### ✅ **优点**
+
+1. **代码可读性**：重构后的代码更容易理解和维护
+2. **逻辑一致性**：宽度和高度的处理逻辑更加统一
+3. **性能提升**：减少了重复计算和对象创建
+4. **维护性**：简化了复杂的条件分支
+
+### ⚠️ **潜在问题**
+
+#### **1. 逻辑变化风险**
+```csharp
+// 原代码：复杂的条件分支
+if (widthMeasureSpec.Mode == MeasureSpecification.ModeType.Exactly)
+{
+    if (heightMeasureSpec.Mode != MeasureSpecification.ModeType.Exactly)
+    {
+        // 复杂的计算逻辑
+    }
+}
+
+// 新代码：简化的线性逻辑
+var newWidthSpecSize = Math.Max(Math.Min(widthSpecSize, Owner.MaximumSize.Width), Owner.MinimumSize.Width);
+```
+
+**风险**：虽然代码更清晰，但需要确保新的逻辑与原逻辑完全等价。
+
+#### **2. 边界条件处理**
+```csharp
+var newWidthSpecSize = Math.Max(Math.Min(widthSpecSize, Owner.MaximumSize.Width), Owner.MinimumSize.Width);
+```
+
+如果 `MaximumSize.Width` 为负数（表示无限制），`Math.Min` 可能返回意外值。
+
+#### **3. 性能考虑**
+```csharp
+// 每次测量都会调用这些属性
+Owner.MaximumSize.Width
+Owner.MinimumSize.Width
+Owner.MaximumSize.Height
+Owner.MinimumSize.Height
+```
+
+建议缓存这些值以避免重复访问。
+
+### **改进建议**
+
+#### **1. 增强边界条件处理**
+```csharp
+var maxWidth = Owner.MaximumSize.Width < 0 ? float.MaxValue : Owner.MaximumSize.Width;
+var newWidthSpecSize = Math.Max(Math.Min(widthSpecSize, maxWidth), Owner.MinimumSize.Width);
+```
+
+#### **2. 性能优化**
+```csharp
+protected override void OnMeasure(MeasureSpecification widthMeasureSpec, MeasureSpecification heightMeasureSpec)
+{
+    // 缓存常用值
+    var minSize = Owner.MinimumSize;
+    var maxSize = Owner.MaximumSize;
+    var maxWidth = maxSize.Width < 0 ? float.MaxValue : maxSize.Width;
+    var maxHeight = maxSize.Height < 0 ? float.MaxValue : maxSize.Height;
+    
+    var widthSpecSize = widthMeasureSpec.GetSize().AsDecimal();
+    var newWidthSpecSize = Math.Max(Math.Min(widthSpecSize, maxWidth), minSize.Width);
+    // ...
+}
+```
+
+#### **3. 添加注释说明**
+```csharp
+// 应用最小/最大尺寸约束
+var newWidthSpecSize = Math.Max(Math.Min(widthSpecSize, Owner.MaximumSize.Width), Owner.MinimumSize.Width);
+if (widthSpecSize != newWidthSpecSize)
+{
+    widthMeasureSpec.SetSize(new LayoutLength(newWidthSpecSize));
+}
+```
+
+#### **4. 单元测试验证**
+建议为新逻辑添加单元测试，确保在各种测量模式下都能正确工作。
+
+### **影响评估**
+
+- **功能影响**：⚠️ 需要验证，逻辑简化可能影响某些边界情况
+- **性能影响**：✅ 正面，减少了重复计算
+- **兼容性**：⚠️ 需要测试，确保行为一致
+- **维护性**：✅ 显著提升，代码更清晰
+- **风险等级**：⚠️ 中等，需要充分测试
+
+### �� **总结**
+
+这是一个**有价值的代码重构**，主要目标是：
+
+1. **简化复杂逻辑**：将嵌套条件重构为线性流程
+2. **提升代码质量**：减少重复代码，提高可读性
+3. **统一处理方式**：宽度和高度的测量逻辑更加一致
+
+**主要建议**：
+1. **充分测试**：确保新逻辑与原逻辑完全等价
+2. **处理边界条件**：特别是负值表示无限制的情况
+3. **性能优化**：缓存重复访问的属性值
+4. **完善文档**：添加注释说明重构的原因和逻辑
+
+**风险提示**：
+- 这是一个核心布局逻辑的修改，需要充分的回归测试
+- 建议先在测试环境中验证，确保所有场景都能正常工作
+
+整体而言，这是一个值得的重构，能够显著提升代码质量，但需要谨慎处理以确保功能一致性。

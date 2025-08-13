@@ -1,0 +1,94 @@
+我来Review这个补丁文件。这是一个针对文本输入组件的修复，涉及 `TextEditor` 和 `TextField` 两个类。
+
+## 代码审查结果
+
+### �� **问题分析**
+
+**原始代码问题：**
+```csharp
+if (((TextEditor)Owner).Text.Length == 0)
+```
+
+**修复后的代码：**
+```csharp
+if (((TextEditor)Owner).Text.Length == 0 && ((TextEditor)Owner).PlaceholderText.Length == 0)
+```
+
+### ✅ **修复的优点**
+
+1. **逻辑完整性**：修复了当文本为空但存在占位符文本时的测量逻辑
+2. **一致性**：`TextEditor` 和 `TextField` 都应用了相同的修复
+3. **用户体验**：确保即使没有实际文本，有占位符的输入框也能正确显示高度
+
+### ⚠️ **潜在问题**
+
+#### **1. 性能问题**
+```csharp
+((TextEditor)Owner).Text.Length == 0 && ((TextEditor)Owner).PlaceholderText.Length == 0
+```
+
+每次测量都会进行两次类型转换和属性访问，建议优化：
+
+```csharp
+var textEditor = (TextEditor)Owner;
+if (textEditor.Text.Length == 0 && textEditor.PlaceholderText.Length == 0)
+```
+
+#### **2. 空引用风险**
+如果 `PlaceholderText` 为 `null`，调用 `.Length` 会抛出 `NullReferenceException`。
+
+**建议修复：**
+```csharp
+var textEditor = (TextEditor)Owner;
+if (string.IsNullOrEmpty(textEditor.Text) && string.IsNullOrEmpty(textEditor.PlaceholderText))
+```
+
+#### **3. 代码重复**
+两个类中有完全相同的逻辑，建议提取到基类或工具方法中。
+
+### �� **改进建议**
+
+#### **1. 使用安全的字符串检查**
+```csharp
+// 在TextEditor.cs中
+var textEditor = (TextEditor)Owner;
+if (string.IsNullOrEmpty(textEditor.Text) && string.IsNullOrEmpty(textEditor.PlaceholderText))
+
+// 在TextField.cs中  
+var textField = (TextField)Owner;
+if (string.IsNullOrEmpty(textField.Text) && string.IsNullOrEmpty(textField.PlaceholderText))
+```
+
+#### **2. 提取公共逻辑**
+```csharp
+// 在基类或工具类中
+protected bool ShouldUsePlaceholderForMeasurement()
+{
+    return string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(PlaceholderText);
+}
+```
+
+#### **3. 添加注释说明**
+```csharp
+// 当文本和占位符都为空时，使用空格字符来计算高度
+// 这样可以确保输入框有合适的最小高度，即使没有内容
+if (string.IsNullOrEmpty(textEditor.Text) && string.IsNullOrEmpty(textEditor.PlaceholderText))
+```
+
+### �� **影响评估**
+
+- **功能影响**：✅ 正面，修复了测量逻辑
+- **性能影响**：⚠️ 轻微，增加了属性访问
+- **兼容性**：✅ 完全兼容
+- **风险等级**：⚠️ 低，但需要处理空引用
+
+### 🎯 **总结**
+
+这是一个**必要的修复**，解决了文本输入组件在测量时的逻辑问题。修复思路正确，但建议：
+
+1. **优化性能**：减少重复的类型转换和属性访问
+2. **增强健壮性**：使用 `string.IsNullOrEmpty()` 避免空引用异常
+3. **减少重复**：提取公共逻辑到基类
+4. **完善文档**：添加注释说明修复的原因和逻辑
+
+整体而言，这是一个有价值的修复，能够改善用户体验，建议采用并按照上述建议进行优化。
